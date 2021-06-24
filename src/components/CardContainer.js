@@ -18,7 +18,15 @@ import Card7 from '../assets/card7.png';
 import Card8 from '../assets/card8.png';
 import Card9 from '../assets/card9.png';
 import Card10 from '../assets/card10.png';
+import Countdown from './Countdown';
+import StartGame from './StartGame';
+import EndGame from './EndGame';
 const background = require('../assets/background.png');
+
+const STATE_START_GAME = 1;
+const STATE_PLAY_GAME = 2;
+const STATE_END_GAME = 3;
+const TIME_PLAY = 300;
 
 const CardContainer = () => {
   const getCardImage = id => {
@@ -47,18 +55,23 @@ const CardContainer = () => {
     }
   };
 
-  const [data, setData] = useState(
-    Array.from({length: 20}, (_, i) => ({
+  const initData = () => {
+    return Array.from({length: 20}, (_, i) => ({
       id: Math.floor(Math.random() * 1000000).toString(),
       number: i + 1,
       isUp: false,
       isDeleted: false,
       imageId: i < 10 ? i + 1 : i - 9,
       imageSource: getCardImage(i),
-    })),
-  );
+    }));
+  };
+
+  const [data, setData] = useState(initData());
+  const [gameState, setGameState] = useState(STATE_START_GAME);
   const [lastOpenCard, setLastOpenCard] = useState(null);
-  // require(`./src/assets/card${i - 9}.png`)
+  const [isWin, setIsWin] = useState(false);
+  const [seconds, setSeconds] = useState(TIME_PLAY);
+
   const onItemPress = async card => {
     const cards = [...data];
     const found = cards.find(item => {
@@ -103,22 +116,52 @@ const CardContainer = () => {
     }, 500);
   };
 
+  /**
+   * Start game
+   */
+  const onStartGame = () => {
+    setGameState(STATE_PLAY_GAME);
+    setSeconds(TIME_PLAY);
+    setIsWin(false);
+    setData(initData());
+  };
+
+  const onTimeUp = async () => {
+    const cards = data.filter(card => !card.isDeleted);
+    if (cards.length) {
+      await setIsWin(false);
+      await setGameState(STATE_END_GAME);
+      await setSeconds(0);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ImageBackground
         source={background}
         style={styles.background}
         resizeMode="cover">
-        <ScrollView>
-          <View style={styles.cardContainer}>
-            {data.map(
-              card =>
-                !card.isDeleted && (
-                  <Card key={card.id} item={card} onPress={onItemPress} />
-                ),
-            )}
-          </View>
-        </ScrollView>
+        {gameState === STATE_START_GAME && (
+          <StartGame onStartGame={onStartGame} />
+        )}
+
+        {gameState === STATE_END_GAME && (
+          <EndGame onStartGame={onStartGame} isWin={isWin} timeLeft={seconds} />
+        )}
+
+        {gameState === STATE_PLAY_GAME && (
+          <ScrollView>
+            <Countdown totalTime={seconds} onStopTimer={onTimeUp} />
+            <View style={styles.cardContainer}>
+              {data.map(
+                card =>
+                  !card.isDeleted && (
+                    <Card key={card.id} item={card} onPress={onItemPress} />
+                  ),
+              )}
+            </View>
+          </ScrollView>
+        )}
       </ImageBackground>
     </View>
   );
